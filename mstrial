@@ -1,0 +1,63 @@
+function convertSpreadsheetToPdf(email, spreadsheetId, sheetName, pdfName) {
+
+  var spreadsheet = spreadsheetId ? SpreadsheetApp.openById(spreadsheetId) : SpreadsheetApp.getActiveSpreadsheet();
+  spreadsheetId = spreadsheetId ? spreadsheetId : spreadsheet.getId()  
+  var sheetId = sheetName ? spreadsheet.getSheetByName(sheetName).getSheetId() : null;  
+  var pdfName = pdfName ? pdfName : spreadsheet.getName();
+  var parents = DriveApp.getFileById(spreadsheetId).getParents();
+  var folder = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  var url_base = spreadsheet.getUrl().replace(/edit$/,'');
+
+  var url_ext = 'export?exportFormat=pdf&format=pdf'   //export as pdf
+
+      // Print either the entire Spreadsheet or the specified sheet if optSheetId is provided
+      + (sheetId ? ('&gid=' + sheetId) : ('&id=' + spreadsheetId)) 
+      // following parameters are optional...
+      + '&size=letter'      // paper size
+      + '&portrait=true'    // orientation, false for landscape
+      + '&fitw=true'        // fit to width, false for actual size
+      + '&sheetnames=false&printtitle=false&pagenumbers=false'  //hide optional headers and footers
+      + '&gridlines=false'  // hide gridlines
+      + '&fzr=false';       // do not repeat row headers (frozen rows) on each page
+
+  var options = {
+    headers: {
+      'Authorization': 'Bearer ' +  ScriptApp.getOAuthToken(),
+    }
+  }
+  
+  var response = UrlFetchApp.fetch(url_base + url_ext, options);
+  var blob = response.getBlob().setName(pdfName + '.pdf');
+  folder.createFile(blob);
+  
+  if (email) {
+
+    var mailOptions = {
+      attachments:blob
+    }
+
+    MailApp.sendEmail(
+      email, 
+      "Here is a file named " + pdfName, 
+      "Please let me know if you have any questions or comments.", 
+      mailOptions);
+  }
+  
+} // convertSpreadsheetToPdf()
+
+function test() {
+
+  var TEST_EMAIL = 'email@gmail.com'
+  ScriptApp.newTrigger("test").timeBased().atHour(12).everyDays(1).create();
+
+  // Create a PDF containing all the tabs in the active spreadsheet, name it
+  // after the spreadsheet, and email it
+  convertSpreadsheetToPdf(TEST_EMAIL)
+  
+  // Create a PDF containing all the tabs in the spreadsheet specified, name it
+  // after the spreadsheet, and email it
+  //convertSpreadsheetToPdf(TEST_EMAIL, '1r9INcnsyvSQmeduJWVYAvznOOYei9jeAjsy0acA3G1k')
+
+  // Create a PDF just containing the tab 'Sheet2' in the active spreadsheet, specify a name, and email it
+  //convertSpreadsheetToPdf(TEST_EMAIL, null, 'Sheet2', 'PDF 3')
+}
